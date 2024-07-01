@@ -1,0 +1,15 @@
+services:
+  moa_db:
+    image: postgres:latest
+    restart: always
+    environment:
+      - POSTGRES_USER=moa
+      - POSTGRES_PASSWORD=moamoneymoaproblems
+      - POSTGRES_DB=moadb
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/moa/postgresql/data
+
+volumes:
+  pgdata:
