@@ -1,8 +1,8 @@
 use actix_web::web;
 
-mod users;
-mod transactions;
 mod balances;
+mod transactions;
+mod users;
 
 pub fn get_all_handlers() -> actix_web::Scope {
     web::scope("/api/v1")
