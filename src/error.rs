@@ -14,11 +14,14 @@ pub enum AppError {
     BadRequest(String),
     #[error("Resource Gone: {0}")]
     Gone(String),
+    #[error("Unauthorized: {0}")]
+    Unauthorized(String),
 }
 
 impl ResponseError for AppError {
     fn status_code(&self) -> actix_web::http::StatusCode {
         match self {
+            Self::Unauthorized(_) => actix_web::http::StatusCode::UNAUTHORIZED,
             Self::Gone(_) => actix_web::http::StatusCode::GONE,
             Self::BadRequest(_) => actix_web::http::StatusCode::BAD_REQUEST,
             _ => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
@@ -31,6 +34,7 @@ impl ResponseError for AppError {
             Self::CryptographyFailure(_) => "Crypto Failure",
             Self::BadRequest(a) => a.as_str(),
             Self::Gone(a) => a.as_str(),
+            Self::Unauthorized(a) => a.as_str(),
         };
 
         let code = self.status_code();

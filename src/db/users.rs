@@ -1,10 +1,11 @@
 use diesel::{
-    result::DatabaseErrorKind, ExpressionMethods, OptionalExtension, QueryDsl, SelectableHelper,
+    result::DatabaseErrorKind, BoolExpressionMethods, ExpressionMethods, OptionalExtension,
+    QueryDsl, SelectableHelper,
 };
 use diesel_async::RunQueryDsl;
 
 use super::{
-    models::{NewUser, User},
+    models::{NewUser, PutUser, User},
     schema::users,
     Error, MoaDB,
 };
@@ -49,13 +50,40 @@ impl MoaDB {
             })
     }
 
-    pub async fn get_user(&self, id: i32) -> Result<Option<User>, Error> {
+    pub async fn get_user(&self, email: &str) -> Result<Option<User>, Error> {
         let mut conn = self.get_conn().await?;
         Ok(users::table
             .select(User::as_select())
-            .filter(users::id.eq(id))
+            .filter(users::email.eq(email))
             .first(&mut conn)
             .await
             .optional()?)
+    }
+
+    pub async fn update_user(
+        &self,
+        id: i32,
+        email: Option<&str>,
+        password: Option<&str>,
+    ) -> Result<User, Error> {
+        let mut conn = self.get_conn().await?;
+        let result = diesel::update(users::table.find(id))
+            .set(&PutUser {
+                email,
+                password,
+                updated_at: chrono::Utc::now(),
+            })
+            .returning(User::as_returning())
+            .get_result(&mut conn)
+            .await?;
+
+        Ok(result)
+    }
+
+    pub async fn delete_user(&self, id: i32) -> Result<usize, Error> {
+        let mut conn = self.get_conn().await?;
+        Ok(diesel::delete(users::table.filter(users::id.eq(id)))
+            .execute(&mut conn)
+            .await?)
     }
 }

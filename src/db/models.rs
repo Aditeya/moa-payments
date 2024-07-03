@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use diesel::{Insertable, Queryable, Selectable};
+use diesel::{query_builder::AsChangeset, Insertable, Queryable, Selectable};
 use serde::Serialize;
 
 use crate::impl_actix_responder;
@@ -23,4 +23,12 @@ impl_actix_responder!(User);
 pub struct NewUser<'a> {
     pub email: &'a str,
     pub password: &'a str,
+}
+
+#[derive(AsChangeset)]
+#[diesel(table_name = crate::db::schema::users)]
+pub struct PutUser<'a> {
+    pub email: Option<&'a str>,
+    pub password: Option<&'a str>,
+    pub updated_at: DateTime<Utc>,
 }

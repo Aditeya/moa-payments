@@ -15,21 +15,27 @@ pub fn get_users_handers() -> actix_web::Scope {
     web::scope("/users")
         .service(create_user)
         .service(get_all_users)
-        .service(get_user)
         .service(update_user)
+        .service(get_user)
         .service(delete_user)
 }
 
 #[derive(Debug, Deserialize)]
-struct NewUser {
+struct UserInfo {
     pub email: String,
     pub password: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct PutUser {
+    pub email: Option<String>,
+    pub password: Option<String>,
 }
 
 #[post("")]
 async fn create_user(
     moa_db: web::Data<MoaDB>,
-    Json(NewUser { email, password }): Json<NewUser>,
+    Json(UserInfo { email, password }): Json<UserInfo>,
 ) -> Result<User, AppError> {
     if !EmailAddress::is_valid(&email) {
         return Err(AppError::BadRequest("Invalid Email Address".into()));
@@ -61,9 +67,9 @@ async fn get_all_users(moa_db: web::Data<MoaDB>) -> Result<Users, AppError> {
     Ok(Users { data })
 }
 
-#[get("/{id}")]
-async fn get_user(moa_db: web::Data<MoaDB>, id: Path<i32>) -> Result<User, AppError> {
-    let user = moa_db.get_user(*id).await?;
+#[get("/{email}")]
+async fn get_user(moa_db: web::Data<MoaDB>, email: Path<String>) -> Result<User, AppError> {
+    let user = moa_db.get_user(&email).await?;
     if let Some(u) = user {
         Ok(u)
     } else {
@@ -71,12 +77,51 @@ async fn get_user(moa_db: web::Data<MoaDB>, id: Path<i32>) -> Result<User, AppEr
     }
 }
 
-#[put("")]
-async fn update_user() -> String {
-    todo!()
+#[put("/id/{id}")]
+async fn update_user(
+    moa_db: web::Data<MoaDB>,
+    id: Path<i32>,
+    Json(PutUser {
+        email,
+        mut password,
+    }): Json<PutUser>,
+) -> Result<User, AppError> {
+    tracing::error!("hello");
+    if let Some(ref email) = email {
+        if !EmailAddress::is_valid(email) {
+            return Err(AppError::BadRequest("Invalid Email Address".into()));
+        }
+    }
+
+    if let Some(ref mut password) = password {
+        if password.is_empty() {
+            return Err(AppError::BadRequest("Password cannot be empty".into()));
+        }
+        *password = pwhash::bcrypt::hash(&password)?;
+    }
+
+    Ok(moa_db
+        .update_user(*id, email.as_deref(), password.as_deref())
+        .await?)
 }
 
 #[delete("")]
-async fn delete_user() -> String {
-    todo!()
+async fn delete_user(
+    moa_db: web::Data<MoaDB>,
+    Json(UserInfo { email, password }): Json<UserInfo>,
+) -> Result<String, AppError> {
+    let Some(user) = moa_db.get_user(&email).await? else {
+        return Err(AppError::BadRequest("User not Found".into()));
+    };
+
+    if !pwhash::bcrypt::verify(&password, &user.password) {
+        return Err(AppError::Unauthorized("Incorrect Password".into()));
+    }
+
+    let result = moa_db.delete_user(user.id).await?;
+    if result == 1 {
+        Ok("Successfully deleted user".into())
+    } else {
+        Err(AppError::BadRequest("User not Found".into()))
+    }
 }
