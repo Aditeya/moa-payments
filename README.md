@@ -2,6 +2,13 @@
 
 MoA - Money of Awesome
 
+## Running
+
+```sh
+docker compose up -d
+cargo run
+```
+
 ## Endpoints
 
 ### Users
